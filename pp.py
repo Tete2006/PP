@@ -3,27 +3,17 @@ import psycopg2
 import mysql.connector
 import pandas as pd
 import re
-import logging
 
-# ======================================================
-# LOGS
-# ======================================================
-logging.basicConfig(
-    filename='logs/etl.log',
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
-)
 
 # ======================================================
 # CONFIG (variáveis de ambiente)
 # ======================================================
 SUPABASE_CONFIG = {
-    "host": os.getenv("PG_HOST"),
-    "database": os.getenv("PG_DB"),
-    "user": os.getenv("PG_USER"),
-    "password": os.getenv("PG_PASSWORD"),
-    "port": os.getenv("PG_PORT"),
-    "sslmode": "require"
+    "host": 'localhost',
+    "database": 'project',
+    "user": 'postgres',
+    "password": 'postgres',
+    "port": 5432
 }
 
 MYSQL_CONFIG = {
@@ -37,13 +27,11 @@ MYSQL_CONFIG = {
 # EXTRACT
 # ======================================================
 def extract():
-    logging.info("Iniciando extração")
     conn = psycopg2.connect(**SUPABASE_CONFIG)
     query = "SELECT * FROM raw_clients"
     df = pd.read_sql(query, conn)
     conn.close()
 
-    logging.info(f"{len(df)} registros extraídos")
     print(f"Total extraídos: {len(df)}")
     return df
 
@@ -52,7 +40,10 @@ def extract():
 # ======================================================
 def is_valid_email(email):
     pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-z]{2,}$'
-    return re.match(pattern, str(email))
+    if re.fullmatch(pattern, str(email)):
+        return email
+    return None
+  
 
 def clean_phone(phone):
     phone = re.sub(r'\D', '', str(phone))
@@ -64,7 +55,7 @@ def clean_phone(phone):
 # TRANSFORM
 # ======================================================
 def transform(df):
-    logging.info("Iniciando transformação")
+
 
     report = {
         "total": len(df),
@@ -88,8 +79,9 @@ def transform(df):
 
     # Validar email
     mask_email = df["email"].apply(is_valid_email)
-    report["invalid_email"] = len(df[~mask_email])
-    df = df[mask_email]
+    df['email'] = mask_email
+    #report["invalid_email"] = len(df[~mask_email])
+    df = df.dropna(subset=['email'])
 
     # Validar telefone
     df["phone"] = df["phone"].apply(clean_phone)
@@ -101,15 +93,14 @@ def transform(df):
     before = len(df)
     df = df.drop_duplicates(subset=["email"])
     report["duplicates"] = before - len(df)
-
-    logging.info("Transformação concluída")
-    return df, report
+    
+    return (df, report)
 
 # ======================================================
 # LOAD
 # ======================================================
 def load(df):
-    logging.info("Iniciando carga no MySQL")
+
 
     conn = mysql.connector.connect(**MYSQL_CONFIG)
     cursor = conn.cursor()
@@ -129,7 +120,6 @@ def load(df):
     cursor.close()
     conn.close()
 
-    logging.info(f"{inserted} registros inseridos")
     print(f"{inserted} registros carregados no MySQL")
 
     return inserted
@@ -156,14 +146,14 @@ def print_report(report, loaded):
 # MAIN
 # ======================================================
 def main():
-    logging.info("Pipeline iniciado")
+
 
     df = extract()
     df_clean, report = transform(df)
     loaded = load(df_clean)
     print_report(report, loaded)
 
-    logging.info("Pipeline finalizado com sucesso")
+
 
 if __name__ == "__main__":
     main()
