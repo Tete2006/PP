@@ -1,0 +1,60 @@
+CREATE DATABASE postres;
+
+CREATE TABLE raw_clients (
+    id SERIAL PRIMARY KEY,
+    nome TEXT,
+    email TEXT,
+    telefone TEXT,
+    cidade TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+
+INSERT INTO raw_clients (nome, email, telefone, cidade)
+SELECT
+    CASE
+        WHEN random() < 0.1 THEN NULL
+        WHEN random() < 0.2 THEN '  ' || nome || '  '
+        WHEN random() < 0.3 THEN lower(nome)
+        WHEN random() < 0.4 THEN upper(nome)
+        ELSE nome
+    END AS nome,
+
+    CASE
+        WHEN random() < 0.1 THEN NULL
+        WHEN random() < 0.2 THEN replace(nome,' ','') || 'email.com'
+        WHEN random() < 0.3 THEN replace(nome,' ','') || '@'
+        WHEN random() < 0.4 THEN replace(nome,' ','') || '@email'
+        ELSE lower(replace(nome,' ','.')) || '@email.com'
+    END AS email,
+
+    CASE
+        WHEN random() < 0.1 THEN NULL
+        WHEN random() < 0.2 THEN '123'
+        WHEN random() < 0.3 THEN 'telefone'
+        ELSE '85' || floor(random()*90000000 + 10000000)::text
+    END AS telefone,
+
+    cidade
+
+FROM (
+    SELECT
+        (ARRAY[
+            'Ana Silva','Bruno Costa','Carlos Almeida','Daniela Souza','Eduardo Pereira',
+            'Fernanda Lima','Gabriel Rocha','Helena Martins','Igor Ribeiro','Juliana Gomes',
+            'Kleber Barros','Larissa Melo','Marcos Carvalho','Natalia Teixeira','Otavio Freitas',
+            'Patricia Batista','Rafael Nunes','Renata Fernandes','Samuel Araujo','Tatiane Castro',
+            'Ubiratan Cardoso','Vanessa Farias','Wagner Pacheco','Yasmin Duarte','Andre Monteiro',
+            'Bianca Tavares','Claudio Peixoto','Debora Sales','Elton Queiroz','Fabiana Neves',
+            'Gustavo Paiva','Hugo Santana','Isabela Moura','Joao Torres','Karen Azevedo',
+            'Leandro Brito','Marcela Coutinho','Nicolas Matos','Olivia Barbosa','Paulo Dias',
+            'Rogerio Cunha','Sabrina Moreira','Thiago Andrade','Valeria Campos','William Figueiredo',
+            'Yuri Medeiros','Zuleica Borges'
+        ])[floor(random()*47)+1] AS nome,
+
+        (ARRAY[
+            'Fortaleza','Maracanau','Caucaia','Eusebio','Pacatuba','Aquiraz'
+        ])[floor(random()*6)+1] AS cidade
+
+    FROM generate_series(1,200)
+) t;
