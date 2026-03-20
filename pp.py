@@ -26,12 +26,15 @@ MYSQL_CONFIG = {
 # EXTRACT
 # ======================================================
 def extract():
+    print("\n[EXTRACT] Iniciando extração do PostgreSQL...")
     conn = psycopg2.connect(**SUPABASE_CONFIG)
     query = "SELECT * FROM raw_clients"
     df = pd.read_sql(query, conn)
     conn.close()
 
     print(f"Total extraídos: {len(df)}")
+    print("[EXTRACT] Prévia dos dados:")
+    print(df.head(), "\n")
     return df
 
 # ======================================================
@@ -52,6 +55,8 @@ def clean_phone(phone):
 # ======================================================
 def transform(df):
 
+    print("[TRANSFORM] Iniciando transformação dos dados...")
+
     report = {
         "total": len(df),
         "null_fields": 0,
@@ -59,6 +64,8 @@ def transform(df):
         "invalid_phone": 0,
         "duplicates": 0
     }
+
+    print(f"[TRANSFORM] Registros recebidos: {len(df)}")
 
     # Padronização
     df["name"] = df["nome"].astype(str).str.strip().str.title()
@@ -72,22 +79,30 @@ def transform(df):
     df = df[(df["email"] != "") & (df["email"] != "None")]
     report["null_fields"] = before - len(df)
 
+    print(f"[TRANSFORM] Removidos por campos nulos: {report['null_fields']}")
+
     # Validar email
     mask_email = df["email"].apply(is_valid_email)
     report["invalid_email"] = len(df[~mask_email])
     df = df[mask_email]
+
+    print(f"[TRANSFORM] Emails inválidos removidos: {report['invalid_email']}")
 
     # Validar telefone
     df["phone"] = df["phone"].apply(clean_phone)
     before = len(df)
     df = df.dropna(subset=["phone"])
     report["invalid_phone"] = before - len(df)
+    
+    print(f"[TRANSFORM] Telefones inválidos removidos: {report['invalid_phone']}")
 
     # Remover duplicados
     before = len(df)
     df = df.drop_duplicates(subset=["email"])
     report["duplicates"] = before - len(df)
-    print()
+    
+    print(f"[TRANSFORM] Duplicados removidos: {report['duplicates']}")
+    print(f"[TRANSFORM] Total após limpeza: {len(df)}\n")
     
     return (df, report)
 
@@ -96,6 +111,7 @@ def transform(df):
 # ======================================================
 def load(df):
 
+    print("[LOAD] Iniciando carga no MySQL...")
 
     conn = mysql.connector.connect(**MYSQL_CONFIG)
     cursor = conn.cursor()
@@ -141,15 +157,12 @@ def print_report(report, loaded):
 # MAIN
 # ======================================================
 def main():
-
-
+    print("PIPELINE ETL INICIADO\n")
     df = extract()
     df_clean, report = transform(df)
     loaded = load(df_clean)
     print_report(report, loaded)
-
-
-
+    print("PIPELINE FINALIZADO\n")
 if __name__ == "__main__":
     main()
 
