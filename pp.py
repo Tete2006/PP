@@ -1,4 +1,3 @@
-import os
 import psycopg2
 import mysql.connector
 import pandas as pd
@@ -17,10 +16,10 @@ SUPABASE_CONFIG = {
 }
 
 MYSQL_CONFIG = {
-    "host": os.getenv("MYSQL_HOST", "localhost"),
-    "user": os.getenv("MYSQL_USER", "root"),
-    "password": os.getenv("MYSQL_PASSWORD", ""),
-    "database": os.getenv("MYSQL_DB", "etl_project")
+    "host": "localhost",
+    "user": "root",
+    "password": "",
+    "database": "etl_project"
 }
 
 # ======================================================
@@ -40,10 +39,7 @@ def extract():
 # ======================================================
 def is_valid_email(email):
     pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-z]{2,}$'
-    if re.fullmatch(pattern, str(email)):
-        return email
-    return None
-  
+    return bool(re.fullmatch(pattern, str(email)))
 
 def clean_phone(phone):
     phone = re.sub(r'\D', '', str(phone))
@@ -55,7 +51,6 @@ def clean_phone(phone):
 # TRANSFORM
 # ======================================================
 def transform(df):
-
 
     report = {
         "total": len(df),
@@ -79,9 +74,8 @@ def transform(df):
 
     # Validar email
     mask_email = df["email"].apply(is_valid_email)
-    df['email'] = mask_email
-    #report["invalid_email"] = len(df[~mask_email])
-    df = df.dropna(subset=['email'])
+    report["invalid_email"] = len(df[~mask_email])
+    df = df[mask_email]
 
     # Validar telefone
     df["phone"] = df["phone"].apply(clean_phone)
@@ -93,6 +87,7 @@ def transform(df):
     before = len(df)
     df = df.drop_duplicates(subset=["email"])
     report["duplicates"] = before - len(df)
+    print()
     
     return (df, report)
 
